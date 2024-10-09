@@ -20,10 +20,6 @@ class Block(nn.Module):
     Attributes:
         conv (nn.Sequential): A sequential container of layers including spectral normalization,
                               convolution, instance normalization, and LeakyReLU activation.
-
-    Methods:
-        forward(x):
-            Defines the forward pass of the block
     """
     def __init__(self, in_channels, out_channels, stride):
         super(Block, self).__init__()
@@ -38,6 +34,9 @@ class Block(nn.Module):
         """
         Defines the forward pass of the block.
 
+        Args:
+            x (torch.Tensor): Input tensor.
+
         Returns:
             torch.Tensor: Output tensor after applying the convolutional layers.
         """
@@ -46,7 +45,11 @@ class Block(nn.Module):
 class Discriminator(nn.Module):
     """
     This class defines a discriminator neural network model for oil painting style transfer.
-    
+
+    Args:
+        in_channels (int): Number of input channels. Default is 3.
+        features (list, optional): List of feature sizes for each layer. Default is [64, 128, 256, 512].
+
     Attributes:
         initial (nn.Sequential): The initial layer of the discriminator consisting 
             of a spectral normalized convolutional layer followed by a LeakyReLU 
@@ -54,13 +57,6 @@ class Discriminator(nn.Module):
         model (nn.Sequential): The sequential container of the discriminator 
             containing a series of blocks and a final spectral normalized 
             convolutional layer.
-    Methods:
-        forward(x):
-            Defines the forward pass of the discriminator model.
-            Args:
-                x (torch.Tensor): Input tensor.
-            Returns:
-                torch.Tensor: Output tensor after passing through the discriminator.
     """
     def __init__(self, in_channels=3, features=None):
         # Default feature sizes for the discriminator
@@ -99,10 +95,12 @@ class Discriminator(nn.Module):
         """
         Defines the forward pass of the discriminator model.
 
+        Args:
+            x (torch.Tensor): Input tensor.
+
         Returns:
             torch.Tensor: Output tensor after passing through the initial and model layers.
         """
         x = self.initial(x)
         x = self.model(x)
         return x
-    
