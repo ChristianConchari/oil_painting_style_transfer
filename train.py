@@ -5,7 +5,6 @@ import torch
 
 from torchvision.utils import save_image
 from tqdm import tqdm
-
 import config
 
 def train_fn(
@@ -17,7 +16,7 @@ def train_fn(
     opt_disc,
     opt_gen,
     l1,
-    mse,
+    bce,
     d_scaler,
     g_scaler
 ):
@@ -59,8 +58,8 @@ def train_fn(
             # Calculate loss
             photo_reals += d_photo_real.mean().item()
             photo_fakes += d_photo_fake.mean().item()
-            d_photo_real_loss = mse(d_photo_real, torch.ones_like(d_photo_real))
-            d_photo_fake_loss = mse(d_photo_fake, torch.zeros_like(d_photo_fake))
+            d_photo_real_loss = bce(d_photo_real, torch.ones_like(d_photo_real))
+            d_photo_fake_loss = bce(d_photo_fake, torch.zeros_like(d_photo_fake))
             d_photo_loss = d_photo_real_loss + d_photo_fake_loss
             # Generate fake paint image
             fake_paint = gen_paint(photo)
@@ -68,8 +67,8 @@ def train_fn(
             d_paint_real = disc_paint(paint)
             d_paint_fake = disc_paint(fake_paint.detach())
             # Calculate loss
-            d_paint_real_loss = mse(d_paint_real, torch.ones_like(d_paint_real))
-            d_paint_fake_loss = mse(d_paint_fake, torch.zeros_like(d_paint_fake))
+            d_paint_real_loss = bce(d_paint_real, torch.ones_like(d_paint_real))
+            d_paint_fake_loss = bce(d_paint_fake, torch.zeros_like(d_paint_fake))
             d_paint_loss = d_paint_real_loss + d_paint_fake_loss
 
             # Combine losses
@@ -86,8 +85,8 @@ def train_fn(
             # Calculate adversarial loss
             d_photo_fake = disc_photo(fake_photo)
             d_paint_fake = disc_paint(fake_paint)
-            loss_g_photo = mse(d_photo_fake, torch.ones_like(d_photo_fake))
-            loss_g_paint = mse(d_paint_fake, torch.ones_like(d_paint_fake))
+            loss_g_photo = bce(d_photo_fake, torch.ones_like(d_photo_fake))
+            loss_g_paint = bce(d_paint_fake, torch.ones_like(d_paint_fake))
             # Calculate cycle loss
             cycle_paint = gen_paint(fake_photo)
             cycle_photo = gen_photo(fake_paint)
@@ -119,4 +118,9 @@ def train_fn(
             save_image(fake_photo * 0.5 + 0.5, f"saved_images/photo_{idx}.png", format='png')
             save_image(fake_paint * 0.5 + 0.5, f"saved_images/paint_{idx}.png", format='png')
 
-        loop.set_postfix(photo_real=photo_reals / (idx + 1), photo_fake=photo_fakes / (idx + 1))
+        loop.set_postfix(
+            photo_real=photo_reals / (idx + 1),
+            photo_fake=photo_fakes / (idx + 1),
+            g_loss=g_loss.item(),
+            d_loss=d_loss.item(),
+        )
