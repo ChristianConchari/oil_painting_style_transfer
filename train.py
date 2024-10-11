@@ -13,7 +13,9 @@ def train_fn(
     painting_discriminator,
     content_generator,
     painting_generator,
-    data_loader
+    data_loader,
+    lambda_cycle=config.LAMBDA_CYCLE,
+    lambda_identity=config.LAMBDA_IDENTITY,
 ):
     """
     Trains the discriminator and generator networks for photo and paint images.
@@ -119,10 +121,10 @@ def train_fn(
                 generator_loss = (
                     adversarial_photo_loss
                     + adversarial_painting_loss
-                    + cycle_content_loss * config.LAMBDA_CYCLE
-                    + cycle_paintings_loss * config.LAMBDA_CYCLE
-                    + identity_content_loss * config.LAMBDA_IDENTITY
-                    + identity_painting_loss * config.LAMBDA_IDENTITY
+                    + cycle_content_loss * lambda_cycle
+                    + cycle_paintings_loss * lambda_cycle
+                    + identity_content_loss * lambda_identity
+                    + identity_painting_loss * lambda_identity
                 )
                 
             # Backpropagation for generator networks
