@@ -27,7 +27,7 @@ class Discriminator(nn.Module):
         if features is None:
             features = [64, 128, 256, 512]
         super().__init__()
-        
+
         # Initial convolutional layer (no normalization)
         self.initial = nn.Sequential(
             nn.Conv2d(
@@ -40,12 +40,12 @@ class Discriminator(nn.Module):
             ),
             nn.LeakyReLU(alpha),
         )
-        
+
         # List to store the subsequent layers
         layers = []
         # Set initial number of input channels
         in_channels = features[0]
-        
+
         for feature in features[1:]:
             # Use stride of 1 for the last feature layer, otherwise use stride of 2
             layers.append(
@@ -58,10 +58,10 @@ class Discriminator(nn.Module):
             )
             # Update the number of input channels for the next block
             in_channels = feature
-        
+
         # Assign the model as a sequential container of the layers
         self.model = nn.Sequential(*layers)
-        
+
         # Add the final convolutional layer
         self.output = nn.Conv2d(
             in_channels,
@@ -71,7 +71,7 @@ class Discriminator(nn.Module):
             padding=1,
             padding_mode='reflect'
         )
-        
+
     def forward(self, x):
         """
         Defines the forward pass of the discriminator model.
