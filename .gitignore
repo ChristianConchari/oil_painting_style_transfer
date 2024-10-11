@@ -161,3 +161,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 /data
+/train_1
+/train_2
+/coco_annotations
+/paintings_complete_dataset_info
