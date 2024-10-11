@@ -5,43 +5,10 @@ as input and outputs a single scalar value. The model is used to distinguish
 between real and generated images. The model is defined using spectral normalization
 and LeakyReLU activation functions.
 """
-import torch.nn as nn
-import torch.nn.utils as utils
+import torch
+from torch import nn
+from blocks import ConvBlock
 
-class Block(nn.Module):
-    """
-    A convolutional block used in the discriminator model for oil painting style transfer.
-
-    Args:
-        in_channels (int): Number of input channels.
-        out_channels (int): Number of output channels.
-        stride (int): Stride size for the convolution.
-
-    Attributes:
-        conv (nn.Sequential): A sequential container of layers including spectral normalization,
-                              convolution, instance normalization, and LeakyReLU activation.
-    """
-    def __init__(self, in_channels, out_channels, stride):
-        super(Block, self).__init__()
-        # Convolutional layer with spectral normalization, instance normalization, and LeakyReLU activation
-        self.conv = nn.Sequential(
-            utils.spectral_norm(nn.Conv2d(in_channels, out_channels, 4, stride, 1, bias=True, padding_mode='reflect')),
-            nn.InstanceNorm2d(out_channels),
-            nn.LeakyReLU(0.2),
-        )
-
-    def forward(self, x):
-        """
-        Defines the forward pass of the block.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            torch.Tensor: Output tensor after applying the convolutional layers.
-        """
-        return self.conv(x)
-    
 class Discriminator(nn.Module):
     """
     This class defines a discriminator neural network model for oil painting style transfer.
@@ -58,22 +25,22 @@ class Discriminator(nn.Module):
             containing a series of blocks and a final spectral normalized 
             convolutional layer.
     """
-    def __init__(self, in_channels=3, features=None):
+    def __init__(self, in_channels=3, alpha=0.2, features=None):
         # Default feature sizes for the discriminator
         if features is None:
             features = [64, 128, 256, 512]
         super().__init__()
         # Initial convolutional layer (no normalization)
         self.initial = nn.Sequential(
-            utils.spectral_norm(nn.Conv2d(
+            nn.Conv2d(
                 in_channels,
                 features[0],
                 kernel_size=4,
                 stride=2,
                 padding=1,
                 padding_mode='reflect',
-            )),
-            nn.LeakyReLU(0.2),
+            ),
+            nn.LeakyReLU(alpha),
         )
         
         # List to store the subsequent layers
@@ -83,13 +50,28 @@ class Discriminator(nn.Module):
         
         for feature in features[1:]:
             # Use stride of 1 for the last feature layer, otherwise use stride of 2
-            layers.append(Block(in_channels, feature, stride=1 if feature == features[-1] else 2))
+            layers.append(
+                ConvBlock(
+                    in_channels,
+                    feature,
+                    kernel_size=4,
+                    stride=1 if feature == features[-1] else 2
+                )
+            )
             # Update the number of input channels for the next block
             in_channels = feature
         
-        # Add the final spectral normalized convolutional layer
-        layers.append(utils.spectral_norm(nn.Conv2d(in_channels, 1, kernel_size=4, stride=1, padding=1, padding_mode='reflect')))
         self.model = nn.Sequential(*layers)
+        
+        # Add the final convolutional layer
+        self.output = nn.Conv2d(
+            in_channels,
+            1,
+            kernel_size=4,
+            stride=1,
+            padding=1,
+            padding_mode='reflect'
+        )
         
     def forward(self, x):
         """
@@ -103,4 +85,5 @@ class Discriminator(nn.Module):
         """
         x = self.initial(x)
         x = self.model(x)
-        return x
+        return torch.sigmoid(self.output(x))
+    
