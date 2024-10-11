@@ -16,6 +16,7 @@ def train_fn(
     data_loader,
     lambda_cycle=config.LAMBDA_CYCLE,
     lambda_identity=config.LAMBDA_IDENTITY,
+    epochs=config.NUM_EPOCHS,
 ):
     """
     Trains the discriminator and generator networks for photo and paint images.
@@ -54,8 +55,8 @@ def train_fn(
     
     print(f'Train on {config.DEVICE}')
     
-    for epoch in range(config.NUM_EPOCHS):
-        print(f'Epoch {epoch + 1}/{config.NUM_EPOCHS}')
+    for epoch in range(epochs):
+        print(f'Epoch {epoch + 1}/{epochs}')
         gen_losses, disc_losses = [], []
         
         if 0 < epoch < 10:
