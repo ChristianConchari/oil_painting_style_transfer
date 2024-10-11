@@ -1,6 +1,7 @@
 """
 This module contains the training function for the CycleGAN model.
 """
+import os
 import torch
 from torchvision.utils import save_image
 import config
@@ -136,6 +137,9 @@ def train_fn(
             if idx % config.VALIDATION_STEP == 0:
                 real_painting, generated_content, real_content, generated_painting = utils.denormalize(painting, fake_content, content, fake_painting)
                 
+                if not os.path.exists(config.CONTENT_RESULTS_DIR):
+                    os.makedirs(config.CONTENT_RESULTS_DIR)
+                
                 save_image(
                     torch.cat([
                         real_painting,
@@ -143,7 +147,10 @@ def train_fn(
                         ], dim=3),
                         f"{config.CONTENT_RESULTS_DIR}/content_{epoch+1}_{idx}.png"
                     )
-            
+
+                if not os.path.exists(config.PAINTINGS_RESULTS_DIR):
+                    os.makedirs(config.PAINTINGS_RESULTS_DIR)
+                
                 save_image(
                     torch.cat([
                         real_content,

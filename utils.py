@@ -39,5 +39,8 @@ def save_epoch_loss_results(epoch, losses):
     plt.legend()
     plt.title(f"Generator and Discriminator Losses for Epoch {epoch+1}")
     
+    if not os.path.exists(config.LOSS_PLOTS_DIR):
+        os.makedirs(config.LOSS_PLOTS_DIR)
+    
     plt.savefig(os.path.join(config.LOSS_PLOTS_DIR, f"epoch_{epoch+1}_losses.png"))
     plt.close()
