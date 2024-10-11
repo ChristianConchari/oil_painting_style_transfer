@@ -1,9 +1,5 @@
 """
 This module defines the discriminator model for oil painting style transfer.
-The discriminator model is a convolutional neural network that takes an image
-as input and outputs a single scalar value. The model is used to distinguish
-between real and generated images. The model is defined using spectral normalization
-and LeakyReLU activation functions.
 """
 import torch
 from torch import nn
@@ -11,25 +7,27 @@ from blocks import ConvBlock
 
 class Discriminator(nn.Module):
     """
-    This class defines a discriminator neural network model for oil painting style transfer.
-
-    Args:
-        in_channels (int): Number of input channels. Default is 3.
-        features (list, optional): List of feature sizes for each layer. Default is [64, 128, 256, 512].
-
+    Discriminator model for oil painting style transfer.
+    This class defines a discriminator neural network model using convolutional layers.
+    The discriminator is used to distinguish between real and generated images.
+    
     Attributes:
-        initial (nn.Sequential): The initial layer of the discriminator consisting 
-            of a spectral normalized convolutional layer followed by a LeakyReLU 
-            activation.
-        model (nn.Sequential): The sequential container of the discriminator 
-            containing a series of blocks and a final spectral normalized 
-            convolutional layer.
+        initial (nn.Sequential): Initial convolutional layer followed by a LeakyReLU activation.
+        model (nn.Sequential): Sequential container of convolutional blocks.
+        output (nn.Conv2d): Final convolutional layer that outputs a single-channel tensor.
+        
+    Methods:
+        __init__(in_channels=3, alpha=0.2, features=None):
+            Initializes the Discriminator model with the given parameters.
+        forward(x):
+            Defines the forward pass of the discriminator model.
     """
     def __init__(self, in_channels=3, alpha=0.2, features=None):
         # Default feature sizes for the discriminator
         if features is None:
             features = [64, 128, 256, 512]
         super().__init__()
+        
         # Initial convolutional layer (no normalization)
         self.initial = nn.Sequential(
             nn.Conv2d(
@@ -61,6 +59,7 @@ class Discriminator(nn.Module):
             # Update the number of input channels for the next block
             in_channels = feature
         
+        # Assign the model as a sequential container of the layers
         self.model = nn.Sequential(*layers)
         
         # Add the final convolutional layer
