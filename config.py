@@ -14,20 +14,28 @@ BETA_1 = 0.5
 BETA_2 = 0.999
 GEN_LEARNING_RATE = 2e-4
 DISC_LEARNING_RATE = GEN_LEARNING_RATE * 0.5
-NUM_EPOCHS = 15
+NUM_EPOCHS = 3
 VALIDATION_STEP = 100
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONTENT_IMAGES_DIR = os.path.join(ROOT_DIR, "data/oil_painting/content/")
-PAINTINGS_IMAGES_DIR = os.path.join(ROOT_DIR, "data/oil_painting/paintings/")
+TRAIN_CONTENT_IMAGES_DIR = os.path.join(ROOT_DIR, "data/oil_painting/content/")
+TRAIN_PAINTINGS_IMAGES_DIR = os.path.join(ROOT_DIR, "data/oil_painting/paintings/")
+TEST_CONTENT_IMAGES_DIR = os.path.join(ROOT_DIR, "data/oil_painting/content_test/")
+TEST_PAINTINGS_IMAGES_DIR = os.path.join(ROOT_DIR, "data/oil_painting/paintings_test/")
 CONTENT_RESULTS_DIR = os.path.join(ROOT_DIR, "data/training_results/results/generated_content/")
 PAINTINGS_RESULTS_DIR = os.path.join(ROOT_DIR, "data/training_results/results/generated_paintings/")
-LOSS_PLOTS_DIR = os.path.join(ROOT_DIR, "training_results/losses/")
+LOSS_PLOTS_DIR = os.path.join(ROOT_DIR, "data/training_results/losses/")
 
 IMG_TRANSFORMS = transforms.Compose([
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.RandomCrop(IMAGE_WIDTH//2),
         transforms.ToTensor(),
         transforms.RandomHorizontalFlip(p=0.5),
+        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+])
+
+TEST_TRANSFORMS = transforms.Compose([
+        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+        transforms.ToTensor(),
         transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
 ])
 
