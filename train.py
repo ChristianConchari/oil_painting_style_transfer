@@ -2,23 +2,17 @@
 This module contains the training function for the CycleGAN model.
 """
 import torch
-
 from torchvision.utils import save_image
-from tqdm import tqdm
 import config
+from tqdm import tqdm as tdqm
+import utils
 
 def train_fn(
-    disc_photo,
-    disc_paint,
-    gen_paint,
-    gen_photo,
-    loader,
-    opt_disc,
-    opt_gen,
-    l1,
-    bce,
-    d_scaler,
-    g_scaler
+    content_discriminator,
+    painting_discriminator,
+    content_generator,
+    painting_generator,
+    data_loader
 ):
     """
     Trains the discriminator and generator networks for photo and paint images.
@@ -32,95 +26,133 @@ def train_fn(
         opt_disc (torch.optim.Optimizer): Optimizer for the discriminator networks.
         opt_gen (torch.optim.Optimizer): Optimizer for the generator networks.
         l1 (torch.nn.Module): L1 loss function.
-        mse (torch.nn.Module): Mean Squared Error (MSE) loss function.
+        bce (torch.nn.Module): Binary Cross-Entropy loss function.
         d_scaler (torch.cuda.amp.GradScaler): Gradient scaler for discriminator networks.
         g_scaler (torch.cuda.amp.GradScaler): Gradient scaler for generator networks.
 
     Returns:
         None
     """
-    photo_reals = 0
-    photo_fakes = 0
-    loop = tqdm(loader, leave=True)
-
-    for idx, (paint, photo) in enumerate(loop):
-        # Move to GPU
-        paint = paint.to(config.DEVICE)
-        photo = photo.to(config.DEVICE)
-
-        # Train Discriminators photo and paint
-        with torch.amp.autocast('cuda'):
-            # Generate fake photo image
-            fake_photo = gen_photo(paint)
-            # Discriminate real and fake photo images
-            d_photo_real = disc_photo(photo)
-            d_photo_fake = disc_photo(fake_photo.detach()) # detach to prevent backpropagation
-            # Calculate loss
-            photo_reals += d_photo_real.mean().item()
-            photo_fakes += d_photo_fake.mean().item()
-            d_photo_real_loss = bce(d_photo_real, torch.ones_like(d_photo_real))
-            d_photo_fake_loss = bce(d_photo_fake, torch.zeros_like(d_photo_fake))
-            d_photo_loss = d_photo_real_loss + d_photo_fake_loss
-            # Generate fake paint image
-            fake_paint = gen_paint(photo)
-            # Discriminate real and fake paint images
-            d_paint_real = disc_paint(paint)
-            d_paint_fake = disc_paint(fake_paint.detach())
-            # Calculate loss
-            d_paint_real_loss = bce(d_paint_real, torch.ones_like(d_paint_real))
-            d_paint_fake_loss = bce(d_paint_fake, torch.zeros_like(d_paint_fake))
-            d_paint_loss = d_paint_real_loss + d_paint_fake_loss
-
-            # Combine losses
-            d_loss = (d_photo_loss + d_paint_loss) / 2
-
-        # Backpropagation
-        opt_disc.zero_grad()
-        d_scaler.scale(d_loss).backward()
-        d_scaler.step(opt_disc)
-        d_scaler.update()
-
-        # Train Generators photo and paint
-        with torch.amp.autocast('cuda'):
-            # Calculate adversarial loss
-            d_photo_fake = disc_photo(fake_photo)
-            d_paint_fake = disc_paint(fake_paint)
-            loss_g_photo = bce(d_photo_fake, torch.ones_like(d_photo_fake))
-            loss_g_paint = bce(d_paint_fake, torch.ones_like(d_paint_fake))
-            # Calculate cycle loss
-            cycle_paint = gen_paint(fake_photo)
-            cycle_photo = gen_photo(fake_paint)
-            cycle_paint_loss = l1(paint, cycle_paint)
-            cycle_photo_loss = l1(photo, cycle_photo)
-            # Calculate identity loss
-            identity_paint = gen_paint(paint)
-            identity_photo = gen_photo(photo)
-            identity_paint_loss = l1(paint, identity_paint)
-            identity_photo_loss = l1(photo, identity_photo)
-
-            # Combine losses
-            g_loss = (
-                loss_g_paint
-                + loss_g_photo
-                + cycle_paint_loss * config.LAMBDA_CYCLE
-                + cycle_photo_loss * config.LAMBDA_CYCLE
-                + identity_photo_loss * config.LAMBDA_IDENTITY
-                + identity_paint_loss * config.LAMBDA_IDENTITY
-            )
-
-        # Backpropagation
-        opt_gen.zero_grad()
-        g_scaler.scale(g_loss).backward()
-        g_scaler.step(opt_gen)
-        g_scaler.update()
-
-        if idx % 200 == 0:
-            save_image(fake_photo * 0.5 + 0.5, f"saved_images/photo_{idx}.png", format='png')
-            save_image(fake_paint * 0.5 + 0.5, f"saved_images/paint_{idx}.png", format='png')
-
-        loop.set_postfix(
-            photo_real=photo_reals / (idx + 1),
-            photo_fake=photo_fakes / (idx + 1),
-            g_loss=g_loss.item(),
-            d_loss=d_loss.item(),
-        )
+    # Initialize gradient scalers for mixed precision training
+    scaler_gen = torch.amp.GradScaler('cuda')
+    scaler_disc = torch.amp.GradScaler('cuda')
+    
+    # Define the optimizers 
+    discriminator_optimizer = torch.optim.Adam(
+        list(content_discriminator.parameters()) + list(painting_discriminator.parameters()),
+        lr=config.DISC_LEARNING_RATE,
+        betas=(config.BETA_1, config.BETA_2),
+    )
+    generator_optimizer = torch.optim.Adam(
+        list(content_generator.parameters()) + list(painting_generator.parameters()),
+        lr=config.GEN_LEARNING_RATE,
+        betas=(config.BETA_1, config.BETA_2),
+    )
+    
+    print(f'Train on {config.DEVICE}')
+    
+    for epoch in range(config.NUM_EPOCHS):
+        print(f'Epoch {epoch + 1}/{config.NUM_EPOCHS}')
+        gen_losses, disc_losses = [], []
+        
+        if 0 < epoch < 10:
+            discriminator_optimizer.param_groups[0]['lr'] = config.DISC_LEARNING_RATE * 0.5
+            generator_optimizer.param_groups[0]['lr'] = config.GEN_LEARNING_RATE * 0.5  
+            
+        for idx, (content, painting) in enumerate(tdqm(data_loader)):
+            content = content.to(config.DEVICE)
+            painting = painting.to(config.DEVICE)
+            
+            # Train the discriminator networks
+            with torch.amp.autocast(config.DEVICE):
+                # Content discriminator
+                fake_content = content_generator(painting)
+                disc_content_real = content_discriminator(content)
+                content_discriminator_output = content_discriminator(fake_content.detach())
+                
+                content_discriminator_real_loss = config.MSE_LOSS(disc_content_real, torch.ones_like(disc_content_real))
+                content_discriminator_fake_loss = config.MSE_LOSS(content_discriminator_output, torch.zeros_like(content_discriminator_output))
+                
+                content_discriminator_loss = content_discriminator_real_loss + content_discriminator_fake_loss
+                
+                # Painting discriminator
+                fake_painting = painting_generator(content)
+                disc_painting_real = painting_discriminator(painting)
+                painting_discriminator_output = painting_discriminator(fake_painting.detach())
+                
+                painting_discriminator_real_loss = config.MSE_LOSS(disc_painting_real, torch.ones_like(disc_painting_real))
+                painting_discriminator_fake_loss = config.MSE_LOSS(painting_discriminator_output, torch.zeros_like(painting_discriminator_output))
+                
+                painting_discriminator_loss = painting_discriminator_real_loss + painting_discriminator_fake_loss
+                
+                # Combine discriminator losses
+                discriminator_loss = (content_discriminator_loss + painting_discriminator_loss) / 2
+            
+            # Backpropagation for discriminator networks
+            discriminator_optimizer.zero_grad()
+            scaler_disc.scale(discriminator_loss).backward()
+            scaler_disc.step(discriminator_optimizer)
+            scaler_disc.update()
+            
+            # Train the generator networks
+            with torch.amp.autocast(config.DEVICE):
+                # Adversarial loss for generators
+                content_discriminator_output = content_discriminator(fake_content)
+                painting_discriminator_output = painting_discriminator(fake_painting)
+                
+                fake_content_logits = torch.ones_like(content_discriminator_output) * 0.9
+                fake_painting_logits = torch.ones_like(painting_discriminator_output) * 0.9
+                
+                adversarial_photo_loss = config.MSE_LOSS(content_discriminator_output, fake_content_logits)
+                adversarial_painting_loss = config.MSE_LOSS(painting_discriminator_output, fake_painting_logits)
+                
+                # Cycle consistency loss
+                cycle_content_loss = config.L1_LOSS(content, content_generator(fake_painting))
+                cycle_paintings_loss = config.L1_LOSS(painting, painting_generator(fake_content))
+                
+                # Identity loss
+                identity_content_loss = config.L1_LOSS(content, content_generator(content))
+                identity_painting_loss = config.L1_LOSS(painting, painting_generator(painting))
+                
+                # Combine generator losses
+                generator_loss = (
+                    adversarial_photo_loss
+                    + adversarial_painting_loss
+                    + cycle_content_loss * config.LAMBDA_CYCLE
+                    + cycle_paintings_loss * config.LAMBDA_CYCLE
+                    + identity_content_loss * config.LAMBDA_IDENTITY
+                    + identity_painting_loss * config.LAMBDA_IDENTITY
+                )
+                
+            # Backpropagation for generator networks
+            generator_optimizer.zero_grad()
+            scaler_gen.scale(generator_loss).backward()
+            scaler_gen.step(generator_optimizer)
+            scaler_gen.update()
+            
+            gen_losses.append(generator_loss.item())
+            disc_losses.append(discriminator_loss.item())
+            
+            if idx % config.VALIDATION_STEP == 0:
+                real_painting, generated_content, real_content, generated_painting = utils.denormalize(painting, fake_content, content, fake_painting)
+                
+                save_image(
+                    torch.cat([
+                        real_painting,
+                        generated_content
+                        ], dim=3),
+                        f"{config.CONTENT_RESULTS_DIR}/content_{epoch+1}_{idx}.png"
+                    )
+            
+                save_image(
+                    torch.cat([
+                        real_content,
+                        generated_painting
+                        ], dim=3),
+                        f"{config.PAINTINGS_RESULTS_DIR}/paintings_{epoch+1}_{idx}.png"
+                    )
+            
+        print(f'Mean Generator Loss: {torch.tensor(gen_losses, dtype=torch.float32).mean()}\n')
+        print(f'Mean Discriminator Loss: {torch.tensor(disc_losses, dtype=torch.float32).mean()}\n')
+        
+        utils.save_epoch_loss_results(epoch, [gen_losses, disc_losses])
