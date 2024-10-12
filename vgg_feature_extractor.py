@@ -3,7 +3,6 @@ This module contains a VGGFeatureExtractor class
 for extracting features from the VGG19 network.
 """
 import torch.nn as nn
-from torchvision import models
 from torchvision.models import vgg19, VGG19_Weights
 
 class VGGFeatureExtractor(nn.Module):
