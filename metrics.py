@@ -268,33 +268,30 @@ def compute_ssim_and_show(image1, image2, idx):
 
     return ssim_value
 
-def evaluate_ssim_over_random_images(test_data_loader, painting_generator, num_images=10):
+def evaluate_ssim_over_random_images(test_data_loader, model, random_indices, is_paint=True):
     """
     Evaluates SSIM on randomly selected images from the test_data_loader.
     """
     # Set the generator model to evaluation mode
-    painting_generator.eval()
+    model.eval()
     ssim_values = []
 
     with torch.no_grad():
-        # Randomly select indices from the test data
-        random_indices = random.sample(range(len(test_data_loader.dataset)), num_images)
+        for idx in random_indices:
+            content_image, paint_image = test_data_loader.dataset[idx]
+            selected_image = content_image.unsqueeze(0).to(config.DEVICE) if is_paint else paint_image.unsqueeze(0).to(config.DEVICE)
 
-        for idx, (content_image, _) in enumerate(test_data_loader):
-            if idx in random_indices:
-                content_image = content_image.to(config.DEVICE)
- 
-                # Generate painting-style image using the painting generator
-                generated_image = painting_generator(content_image)
- 
-                # Rescale the generated image and content image to [0, 1] for visualization
-                generated_image = generated_image * 0.5 + 0.5
-                content_image = content_image * 0.5 + 0.5
+            # Generate image
+            generated_image = model(selected_image)
+            
+            # Rescale the generated image and content image to [0, 1] for visualization
+            generated_image = generated_image * 0.5 + 0.5
+            selected_image = selected_image * 0.5 + 0.5
 
-                # Compute SSIM and show the images
-                ssim_value = compute_ssim_and_show(content_image[0], generated_image[0], idx)
-                ssim_values.append(ssim_value)
+            # Compute SSIM and show the images
+            ssim_value = compute_ssim_and_show(selected_image[0], generated_image[0], idx)
+            ssim_values.append(ssim_value)
 
     # Calculate and display the average SSIM across all selected images
     avg_ssim = np.mean(ssim_values)
-    print(f"\nAverage SSIM for the selected {num_images} images: {avg_ssim:.4f}")
+    print(f"\nAverage SSIM for the selected images: {avg_ssim:.4f}")
