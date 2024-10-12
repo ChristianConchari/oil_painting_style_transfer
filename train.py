@@ -17,6 +17,7 @@ def train_fn(
     lambda_cycle=config.LAMBDA_CYCLE,
     lambda_identity=config.LAMBDA_IDENTITY,
     epochs=config.NUM_EPOCHS,
+    iteration=1
 ):
     """
     Trains the discriminator and generator networks for photo and paint images.
@@ -142,27 +143,33 @@ def train_fn(
                 
                 if not os.path.exists(config.CONTENT_RESULTS_DIR):
                     os.makedirs(config.CONTENT_RESULTS_DIR)
+                    
+                if not os.path.exists(os.path.join(config.CONTENT_RESULTS_DIR, f"iteration_{str(iteration)}")):
+                    os.makedirs(os.path.join(config.CONTENT_RESULTS_DIR, f"iteration_{str(iteration)}"))
                 
                 save_image(
                     torch.cat([
                         real_painting,
                         generated_content
                         ], dim=3),
-                        f"{config.CONTENT_RESULTS_DIR}/content_{epoch+1}_{idx}.png"
+                        f"{config.CONTENT_RESULTS_DIR}/iteration_{str(iteration)}/content_{epoch+1}_{idx}.png"
                     )
 
                 if not os.path.exists(config.PAINTINGS_RESULTS_DIR):
                     os.makedirs(config.PAINTINGS_RESULTS_DIR)
+                    
+                if not os.path.exists(os.path.join(config.PAINTINGS_RESULTS_DIR, f"iteration_{str(iteration)}")):
+                    os.makedirs(os.path.join(config.PAINTINGS_RESULTS_DIR, f"iteration_{str(iteration)}"))
                 
                 save_image(
                     torch.cat([
                         real_content,
                         generated_painting
                         ], dim=3),
-                        f"{config.PAINTINGS_RESULTS_DIR}/paintings_{epoch+1}_{idx}.png"
+                        f"{config.PAINTINGS_RESULTS_DIR}/iteration_{str(iteration)}/paintings_{epoch+1}_{idx}.png"
                     )
             
         print(f'Mean Generator Loss: {torch.tensor(gen_losses, dtype=torch.float32).mean()}\n')
         print(f'Mean Discriminator Loss: {torch.tensor(disc_losses, dtype=torch.float32).mean()}\n')
         
-        utils.save_epoch_loss_results(epoch, [gen_losses, disc_losses])
+        utils.save_epoch_loss_results(epoch, [gen_losses, disc_losses], iteration)

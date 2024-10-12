@@ -22,7 +22,7 @@ def denormalize(*args):
     """
     return [arg * 0.5 + 0.5 for arg in args]
 
-def save_epoch_loss_results(epoch, losses):
+def save_epoch_loss_results(epoch, losses, iteration):
     """
     Saves a plot of generator and discriminator losses for a given epoch.
     Args:
@@ -46,8 +46,11 @@ def save_epoch_loss_results(epoch, losses):
 
     if not os.path.exists(config.LOSS_PLOTS_DIR):
         os.makedirs(config.LOSS_PLOTS_DIR)
+        
+    if not os.path.exists(os.path.join(config.LOSS_PLOTS_DIR, f"iteration_{str(iteration)}")):
+        os.makedirs(os.path.join(config.LOSS_PLOTS_DIR, f"iteration_{str(iteration)}"))
 
-    plt.savefig(os.path.join(config.LOSS_PLOTS_DIR, f"epoch_{epoch+1}_losses.png"))
+    plt.savefig(os.path.join(config.LOSS_PLOTS_DIR, f"iteration_{str(iteration)}/epoch_{epoch+1}_losses.png"))
     plt.close()
 
 def generate_test_images(
